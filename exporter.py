@@ -220,7 +220,7 @@ def _export_onnx(
     shutil.rmtree(tmp_dir)
 
 
-def export_trt(trt_path: str, onnx_path: str, timing_cache: str, profile: dict, use_fp16: bool):
+def export_trt(trt_path: str, onnx_path: str, timing_cache: str, profile: dict, use_fp16: bool, fp8=False):
     engine = Engine(trt_path)
 
     # TODO Still approx. 2gb of VRAM unaccounted for...
@@ -231,6 +231,7 @@ def export_trt(trt_path: str, onnx_path: str, timing_cache: str, profile: dict, 
     ret = engine.build(
         onnx_path,
         use_fp16,
+        fp8=fp8,
         enable_refit=True,
         enable_preview=True,
         timing_cache=timing_cache,

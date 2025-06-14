@@ -10,7 +10,7 @@ def install():
     from importlib_metadata import version
 
     if launch.is_installed("tensorrt"):
-        if not version("tensorrt") == "9.0.1.post11.dev4":
+        if not version("tensorrt") == "10.11.0.33":
             launch.run(
                 ["python", "-m", "pip", "uninstall", "-y", "tensorrt"],
                 "removing old version of tensorrt",
@@ -19,23 +19,23 @@ def install():
     if not launch.is_installed("tensorrt"):
         print("TensorRT is not installed! Installing...")
         launch.run_pip(
-            "install nvidia-cudnn-cu11==8.9.4.25 --no-cache-dir", "nvidia-cudnn-cu11"
+            "install nvidia-cudnn-cu12==9.10.2.21 --no-cache-dir", "nvidia-cudnn-cu12"
         )
         launch.run_pip(
-            "install --pre --extra-index-url https://pypi.nvidia.com tensorrt==9.0.1.post11.dev4 --no-cache-dir",
+            "install --pre --extra-index-url https://pypi.nvidia.com tensorrt==10.11.0.33 --no-cache-dir",
             "tensorrt",
             live=True,
         )
         launch.run(
-            ["python", "-m", "pip", "uninstall", "-y", "nvidia-cudnn-cu11"],
-            "removing nvidia-cudnn-cu11",
+            ["python", "-m", "pip", "uninstall", "-y", "nvidia-cudnn-cu12"],
+            "removing nvidia-cudnn-cu12",
         )
 
-    if launch.is_installed("nvidia-cudnn-cu11"):
-        if version("nvidia-cudnn-cu11") == "8.9.4.25":
+    if launch.is_installed("nvidia-cudnn-cu12"):
+        if version("nvidia-cudnn-cu12") == "9.10.2.21":
             launch.run(
-                ["python", "-m", "pip", "uninstall", "-y", "nvidia-cudnn-cu11"],
-                "removing nvidia-cudnn-cu11",
+                ["python", "-m", "pip", "uninstall", "-y", "nvidia-cudnn-cu12"],
+                "removing nvidia-cudnn-cu12",
             )
 
     # Polygraphy
@@ -50,7 +50,7 @@ def install():
     # ONNX GS
     if not launch.is_installed("onnx_graphsurgeon"):
         print("GS is not installed! Installing...")
-        launch.run_pip("install protobuf==3.20.2", "protobuf", live=True)
+        launch.run_pip("install protobuf==4.25.8", "protobuf", live=True)
         launch.run_pip(
             "install onnx-graphsurgeon --extra-index-url https://pypi.ngc.nvidia.com",
             "onnx-graphsurgeon",

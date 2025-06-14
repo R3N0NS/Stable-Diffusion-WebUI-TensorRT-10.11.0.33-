@@ -204,6 +204,7 @@ class Engine:
         self,
         onnx_path,
         fp16,
+        fp8=False,          
         input_profile=None,
         enable_refit=False,
         enable_preview=False,
@@ -237,7 +238,32 @@ class Engine:
 
         config.set_flag(trt.BuilderFlag.FP16) if fp16 else None
         config.set_flag(trt.BuilderFlag.REFIT) if enable_refit else None
-
+        
+        if fp8:
+            try:
+                if hasattr(trt.BuilderFlag, 'FP8'):
+                    config.set_flag(trt.BuilderFlag.FP8)
+                    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 8 << 30)
+                    config.set_tactic_sources(
+                        1 << int(trt.TacticSource.CUBLAS_LT) | 
+                        1 << int(trt.TacticSource.CUDNN))
+                    config.set_flag(trt.BuilderFlag.DIRECT_IO)
+                    config.set_flag(trt.BuilderFlag.SPARSE_WEIGHTS)
+                    config.set_flag(trt.BuilderFlag.REJECT_EMPTY_ALGORITHMS)
+                if hasattr(config, 'set_precision_constraints'):
+                    config.set_precision_constraints(trt.PrecisionConstraint.OBEY)
+                elif hasattr(trt.BuilderFlag, 'OBEY_PRECISION_CONSTRAINTS'):
+                    config.set_flag(trt.BuilderFlag.OBEY_PRECISION_CONSTRAINTS)
+                    print("[TRT] FP8 precision enabled")
+                    
+                    if not fp16:
+                        config.set_flag(trt.BuilderFlag.FP16)
+                        print("[TRT] Enabling FP16 for FP8 fallback")
+                else:
+                    print("[TRT] WARNING: FP8 not supported in this TensorRT version")
+            except Exception as e:
+                print(f"[TRT] FP8 activation failed: {str(e)}")                                  
+                    
         cache = None
         try:
             with util.LockFile(timing_cache):
@@ -288,7 +314,9 @@ class Engine:
         #    self.context.device_memory = reuse_device_memory
         else:
             self.context = self.engine.create_execution_context()
-
+        if hasattr(trt.BuilderFlag, 'FP8'):
+            self.context.set_optimization_profile_async(0, torch.cuda.current_stream().cuda_stream)
+        
     def allocate_buffers(self, shape_dict=None, device="cuda"):
         nvtx.range_push("allocate_buffers")
         for idx in range(self.engine.num_io_tensors):
@@ -296,10 +324,13 @@ class Engine:
             if shape_dict and binding in shape_dict:
                 shape = shape_dict[binding].shape
             else:
-                shape = self.context.get_binding_shape(idx)
-            dtype = trt.nptype(self.engine.get_binding_dtype(binding))
-            if self.engine.binding_is_input(binding):
-                self.context.set_binding_shape(idx, shape)
+                shape = self.context.get_tensor_shape(binding)
+                #if shape is None or not isinstance(shape, (list, tuple)):
+                    #warning(f"[!] Invalid shape detected: {shape}. Consider changing your resolution settings to prevent generation failures.")
+                    #shape = [1]  # Default fallback shape. - Update: this doesn't work, this causes inference failures in the CUDA stream.
+            dtype = trt.nptype(self.engine.get_tensor_dtype(binding))
+            if self.engine.get_tensor_mode(binding) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(binding, shape)
             tensor = torch.empty(
                 tuple(shape), dtype=numpy_to_torch_dtype_dict[dtype]
             ).to(device=device)
@@ -324,8 +355,8 @@ class Engine:
     def __str__(self):
         out = ""
         for opt_profile in range(self.engine.num_optimization_profiles):
-            for binding_idx in range(self.engine.num_bindings):
-                name = self.engine.get_binding_name(binding_idx)
-                shape = self.engine.get_profile_shape(opt_profile, name)
+            for binding_idx in range(self.engine.num_io_tensors):
+                name = self.engine.get_tensor_name(binding_idx)
+                shape = self.engine.get_tensor_profile_shape(name, opt_profile)
                 out += f"\t{name} = {shape}\n"
         return out

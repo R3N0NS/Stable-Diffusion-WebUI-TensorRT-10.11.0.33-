@@ -58,6 +58,7 @@ def export_unet_to_trt(
     force_export,
     static_shapes,
     preset,
+    use_fp8=False,
 ):
     sd_hijack.model_hijack.apply_optimizations("None")
 
@@ -129,6 +130,7 @@ def export_unet_to_trt(
             timing_cache,
             profile=profile,
             use_fp16=not use_fp32,
+            fp8=use_fp8,
         )
         if ret:
             return "## Export Failed due to unknown reason. See shell for more information. \n"
@@ -419,6 +421,14 @@ def on_ui_tabs():
                             value="Default",
                         )
 
+                        with FormRow(elem_classes="checkboxes-row", variant="compact"
+                            ):
+                                use_fp8 = gr.Checkbox(
+                                    label="FP8 Mode",
+                                    value=True,
+                                    elem_id="trt_use_fp8"
+                                )
+                                
                         with gr.Accordion(
                             "Advanced Settings", open=False, visible=False
                         ) as advanced_settings:
@@ -708,6 +718,7 @@ def on_ui_tabs():
                 force_rebuild,
                 static_shapes,
                 version,
+                use_fp8,
             ],
             outputs=[trt_result],
         )
@@ -730,6 +741,7 @@ def on_ui_tabs():
                 force_rebuild,
                 static_shapes,
                 version,
+                use_fp8,
             ],
             outputs=[trt_result],
         )
